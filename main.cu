@@ -97,11 +97,12 @@ ft_mul_kernel(float* __restrict__ pd_out,
             const auto lhs_n = levels[lhs_deg];
             const auto rhs_n = levels[rhs_deg];
 
-            __syncthreads();
+//            __syncthreads();
             auto ix = x_offset;
             auto iy = y_offset;
             if (ix < lhs_n && iy < rhs_n) {
                 out_p[ix * rhs_n + iy] += lhs_p[ix]*rhs_p[iy];
+//                __syncthreads();
             }
 //            for (auto ix = x_offset; ix < lhs_n; ix += step) {
 //                auto *optr = out_p + ix * rhs_n;
@@ -110,9 +111,101 @@ ft_mul_kernel(float* __restrict__ pd_out,
 //                    optr[jx] += lhs_val * rhs_p[jx];
 //                }
 //            }
-            __syncthreads();
+//            __syncthreads();
         }
     }
+}
+
+template <typename T>
+using rp_t = T* __restrict;
+template <typename T>
+using crp_t = const T* __restrict;
+
+template <typename T>
+struct WriteTensorData {
+    rp_t<T> fwd_data;
+    rp_t<T> rev_data;
+};
+
+template <typename T>
+struct ReadTensorData {
+    crp_t<T> fwd_read;
+    crp_t<T> rev_read;
+};
+
+struct ComputeInfo {
+    int32_t width;
+    int32_t depth;
+    int32_t tile_letters;
+    const int32_t* levels;
+    const int32_t* reverse_letters;
+};
+
+
+template <typename T>
+__global__ void ft_tiled_mul(WriteTensorData<T> out,
+                             ReadTensorData<T> lhs,
+                             ReadTensorData<T> rhs,
+                             ComputeInfo info) {
+    const auto xi = blockIdx.x*blockDim.x + threadIdx.x;
+    const auto yi = blockIdx.y*blockDim.y + threadIdx.y;
+    const auto grid_x = gridDim.x * blockDim.x;
+    const auto grid_y = gridDim.y * blockDim.y;
+
+    const auto idx = yi * grid_x + xi;
+
+    extern __shared__ T write_tile[];
+    const auto tile_width = info.levels[info.tile_letters];
+    const auto tile_size = tile_width * tile_width;
+
+    T* left_read_tile = &write_tile[tile_size];
+    T* right_read_tile = &left_read_tile[tile_width];
+
+    auto read_left = [left_read_tile, idx, tile_width](crp_t<T> src) {
+        __syncthreads();
+        if (idx < tile_width) {
+            left_read_tile[idx] = src[idx];
+        }
+        __syncthreads();
+    };
+    auto read_right = [right_read_tile, idx, tile_width](crp_t<T> src) {
+        __syncthreads();
+        if (idx < tile_width) {
+            right_read_tile[idx] = src[idx];
+        }
+        __syncthreads();
+    };
+
+    auto permute_read_tile = [rev_ids=info.reverse_letters, tile_width, idx, tile=left_read_tile]() {
+        __syncthreads();
+        T val = 0;
+        if (idx < tile_width) {
+            val = tile[idx];
+        }
+        __syncthreads();
+        if (idx < tile_width) {
+            const auto ridx = rev_ids[idx];
+            tile[ridx] = val;
+        }
+
+    };
+
+
+    for (int32_t out_deg=info.depth; out_deg >= 2*info.tile_letters; --out_deg) {
+        const auto mid_deg = out_deg - 2 * info.tile_letters;
+
+
+        for (int32_t mid_idx=0; mid_idx < info.levels[mid_deg]; ++mid_idx) {
+            const auto mid_ridx = reverse_idx(mid_idx, info.width, mid_deg);
+
+
+
+        }
+
+
+    }
+
+
 }
 
 
