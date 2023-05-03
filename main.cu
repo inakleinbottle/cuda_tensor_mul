@@ -30,7 +30,7 @@ __host__ __device__ int32_t reverse_idx(int32_t idx, int32_t width, int32_t dept
 }
 
 
-__host__ __device__ inline  int32_t compute_offset(const uint32_t* levels, int32_t level) {
+__host__ __device__ inline  int32_t compute_offset(const int32_t* levels, int32_t level) {
     int32_t result = 0;
     for (int32_t i=0; i<level; ++i) {
         result += levels[i];
@@ -47,7 +47,7 @@ void ft_mul_host(float* __restrict__ pd_out,
               const float* __restrict__ pd_lhs,
               const float* __restrict__ pd_rhs,
               int32_t max_depth,
-              const uint32_t* levels) {
+              const int32_t* levels) {
 
     for (int32_t out_deg = max_depth; out_deg >= 0; --out_deg) {
         auto* out_p = pd_out + compute_offset(levels, out_deg);
@@ -74,7 +74,7 @@ ft_mul_kernel(float* __restrict__ pd_out,
               const float* __restrict__ pd_lhs,
               const float* __restrict__ pd_rhs,
               int32_t max_depth,
-              const uint32_t* levels) {
+              const int32_t* levels) {
 
     auto x_offset = blockIdx.x * blockDim.x + threadIdx.x;
     const auto y_offset = blockIdx.y*blockDim.y + threadIdx.y;
@@ -142,65 +142,120 @@ struct ComputeInfo {
 };
 
 
+struct DivRem {
+    int div;
+    int rem;
+};
+
+
+__device__ __host__ DivRem divide(int idx, int divisor) {
+
+    DivRem result;
+    result.div = idx / divisor;
+    result.rem = (idx - result.div * divisor);
+
+    return result;
+}
+
+
 template <typename T>
 __global__ void ft_tiled_mul(WriteTensorData<T> out,
                              ReadTensorData<T> lhs,
                              ReadTensorData<T> rhs,
                              ComputeInfo info) {
-    const auto xi = blockIdx.x*blockDim.x + threadIdx.x;
-    const auto yi = blockIdx.y*blockDim.y + threadIdx.y;
+    const auto& xi = threadIdx.x;
+    const auto& yi = threadIdx.y;
     const auto grid_x = gridDim.x * blockDim.x;
     const auto grid_y = gridDim.y * blockDim.y;
+    const auto& tile_width = info.levels[info.tile_letters];
 
-    const auto idx = yi * grid_x + xi;
+    const auto tile_idx = xi*blockDim.x + yi;
 
-    extern __shared__ T write_tile[];
-    const auto tile_width = info.levels[info.tile_letters];
+    auto get_offset = [&info] (int32_t level, int32_t offset) -> int32_t {
+        auto level_offset = compute_offset(info.levels, level);
+        return level_offset + offset;
+    };
+
+
+    extern __shared__ T tile[];   // size blockDim.x * blockDim.y
     const auto tile_size = tile_width * tile_width;
 
-    T* left_read_tile = &write_tile[tile_size];
-    T* right_read_tile = &left_read_tile[tile_width];
-
-    auto read_left = [left_read_tile, idx, tile_width](crp_t<T> src) {
-        __syncthreads();
-        if (idx < tile_width) {
-            left_read_tile[idx] = src[idx];
-        }
-        __syncthreads();
-    };
-    auto read_right = [right_read_tile, idx, tile_width](crp_t<T> src) {
-        __syncthreads();
-        if (idx < tile_width) {
-            right_read_tile[idx] = src[idx];
-        }
-        __syncthreads();
-    };
-
-    auto permute_read_tile = [rev_ids=info.reverse_letters, tile_width, idx, tile=left_read_tile]() {
-        __syncthreads();
-        T val = 0;
-        if (idx < tile_width) {
-            val = tile[idx];
-        }
-        __syncthreads();
-        if (idx < tile_width) {
-            const auto ridx = rev_ids[idx];
-            tile[ridx] = val;
-        }
-
-    };
-
+    T lhs_val = 0;
+    T rhs_val = 0;
 
     for (int32_t out_deg=info.depth; out_deg >= 2*info.tile_letters; --out_deg) {
         const auto mid_deg = out_deg - 2 * info.tile_letters;
+        const auto& mid_stride = info.levels[mid_deg];
 
 
         for (int32_t mid_idx=0; mid_idx < info.levels[mid_deg]; ++mid_idx) {
             const auto mid_ridx = reverse_idx(mid_idx, info.width, mid_deg);
 
+            tile[tile_idx] = 0;
+            __syncthreads();
 
+            for (int32_t lhs_deg = 1; lhs_deg < info.tile_letters; ++lhs_deg) {
+                auto rhs_deg = out_deg - lhs_deg;
 
+                lhs_val = 0;
+                rhs_val = 0;
+
+                const auto& remainder_bound = info.levels[info.tile_letters + rhs_deg];
+
+                auto split = divide(xi, remainder_bound);
+                if (xi < tile_width && yi < tile_width) {
+                    lhs_val = lhs.fwd_read[get_offset(lhs_deg, 0)];
+                    rhs_val = rhs.fwd_read[get_offset(rhs_deg, (split.rem*mid_stride + mid_idx)*tile_width) + yi];
+                }
+
+                tile[tile_idx] += lhs_val*rhs_val;
+            }
+
+            for (int32_t lhs_mid_deg = 0; lhs_mid_deg <= mid_deg; ++lhs_mid_deg) {
+                auto rhs_mid_deg = mid_deg - lhs_mid_deg;
+
+                lhs_val = 0;
+                rhs_val = 0;
+
+                auto split = divide(mid_idx, info.levels[rhs_mid_deg]);
+                if (xi < tile_width) {
+                    lhs_val = lhs.fwd_read[get_offset(lhs_mid_deg + info.tile_letters,
+                                           xi*info.levels[lhs_mid_deg] + split.div)];
+                }
+                if (yi < tile_width) {
+                    rhs_val = rhs.fwd_read[get_offset(rhs_mid_deg + info.tile_letters,
+                                           split.rem*tile_width + yi)];
+                }
+
+                tile[tile_idx] += lhs_val * rhs_val;
+            }
+
+            for (int32_t rhs_deg = 1; rhs_deg < info.tile_letters; ++rhs_deg) {
+                auto lhs_deg = out_deg - rhs_deg;
+
+                const auto small_bound = info.levels[lhs_deg];
+                const auto &remainder_bound = info.levels[rhs_deg];
+                lhs_val = 0;
+                rhs_val = 0;
+
+                auto split = divide(xi, remainder_bound);
+                if (xi < tile_width && yi < tile_width) {
+                    rhs_val = rhs.fwd_read[get_offset(rhs_deg,
+                                                      (split.rem * mid_stride + mid_idx) * tile_width + yi)];
+                    lhs_val = lhs.fwd_read[get_offset(lhs_deg, split.div)];
+                }
+
+                tile[tile_idx] += lhs_val * rhs_val;
+            }
+
+            if (xi < tile_width && yi < tile_width) {
+                out.fwd_data[get_offset(out_deg, (xi*mid_stride + mid_idx)*tile_width + yi)]
+                    += tile[tile_idx];
+            }
         }
+
+
+
 
 
     }
@@ -211,7 +266,7 @@ __global__ void ft_tiled_mul(WriteTensorData<T> out,
 
 int main() {
 
-    thrust::host_vector<uint32_t> powers;
+    thrust::host_vector<int32_t> powers;
     powers.reserve(1 + DEPTH);
     powers.push_back(1);
     thrust::host_vector<int32_t> offsets;
@@ -229,7 +284,7 @@ int main() {
         std::cout << val << '\n';
     }
 
-    thrust::device_vector<uint32_t> device_powers(powers);
+    thrust::device_vector<int32_t> device_powers(powers);
 //    thrust::device_vector<int32_t> device_offsets(offsets);
 
     thrust::host_vector<float> in_left;
@@ -250,24 +305,34 @@ int main() {
 
     thrust::device_vector<float> dout(tensor_size);
 
-    const uint32_t* levels = thrust::raw_pointer_cast(&device_powers[0]);
+    const int32_t* levels = thrust::raw_pointer_cast(&device_powers[0]);
     float* pd_out = thrust::raw_pointer_cast(&dout[0]);
     const float* pd_lhs = thrust::raw_pointer_cast(&din_left[0]);
     const float* pd_rhs = thrust::raw_pointer_cast(&din_right[0]);
 
     dim3 threads_per_block(32, 32);
-    dim3 blocks (round_up_div(powers.back(), threads_per_block.x), round_up_div(powers.back(), threads_per_block.y));
+    dim3 blocks { 1 };
+    auto shared_size = threads_per_block.x * threads_per_block.y * sizeof(float);
+
 
     std::cout << "Blocks: " << blocks.x << ' ' << blocks.y << '\n';
+
+
 
     std::chrono::high_resolution_clock clk;
     auto start = clk.now();
     ft_mul_kernel<<<blocks, threads_per_block>>>(pd_out, pd_lhs, pd_rhs, DEPTH, levels);
+//    ft_tiled_mul<float><<<blocks, threads_per_block, shared_size>>>(
+        {pd_out, nullptr}, {pd_lhs, nullptr}, {pd_rhs, nullptr},
+        {WIDTH, DEPTH, 2, levels, nullptr}
+    );
     cudaDeviceSynchronize();
     auto end = clk.now();
 
     auto time = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
     std::cout << "Time: " << time.count() << '\n';
+
+
 
     thrust::host_vector<float> result(dout);
 
