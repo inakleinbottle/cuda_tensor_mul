@@ -311,7 +311,8 @@ int main() {
     const float* pd_rhs = thrust::raw_pointer_cast(&din_right[0]);
 
     dim3 threads_per_block(32, 32);
-    dim3 blocks { 1 };
+    dim3 blocks { (tensor_size + threads_per_block.x - 1) / threads_per_block.x,
+                  (tensor_size + threads_per_block.y - 1) / threads_per_block.y};
     auto shared_size = threads_per_block.x * threads_per_block.y * sizeof(float);
 
 
