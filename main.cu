@@ -323,9 +323,9 @@ int main() {
     auto start = clk.now();
     ft_mul_kernel<<<blocks, threads_per_block>>>(pd_out, pd_lhs, pd_rhs, DEPTH, levels);
 //    ft_tiled_mul<float><<<blocks, threads_per_block, shared_size>>>(
-        {pd_out, nullptr}, {pd_lhs, nullptr}, {pd_rhs, nullptr},
-        {WIDTH, DEPTH, 2, levels, nullptr}
-    );
+//        {pd_out, nullptr}, {pd_lhs, nullptr}, {pd_rhs, nullptr},
+//        {WIDTH, DEPTH, 2, levels, nullptr}
+//    );
     cudaDeviceSynchronize();
     auto end = clk.now();
 
