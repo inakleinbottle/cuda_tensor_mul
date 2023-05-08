@@ -3,7 +3,16 @@ project(cuda_tensor_mul CUDA)
 
 set(CMAKE_CUDA_STANDARD 17)
 
-add_executable(cuda_tensor_mul main.cu)
+add_executable(cuda_tensor_mul
+        main.cu
+        ftm_tiled.cuh
+        common.cuh
+        ftm_reference.cuh
+        ftm_cuda_simple.cuh
+        examples.cuh
+        example1.cu
+
+        )
 
 set_target_properties(cuda_tensor_mul PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON)
