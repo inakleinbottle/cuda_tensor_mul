@@ -36,13 +36,18 @@ ft_mul_kernel(rp_t<S> pd_out,
             const auto lhs_n = levels[lhs_deg];
             const auto rhs_n = levels[rhs_deg];
 
-//            __syncthreads();
             auto ix = x_offset;
             auto iy = y_offset;
+
+
+//            __syncthreads();
+
             if (ix < lhs_n && iy < rhs_n) {
-                out_p[ix * rhs_n + iy] += lhs_p[ix] * rhs_p[iy];
-//                __syncthreads();
+                out_p[ix*rhs_n + iy] += lhs_p[ix]*rhs_p[iy];
             }
+//            atomicAdd(out_p + ix*rhs_n + iy, lhs_p[ix] * rhs_p[iy]);
+//                __syncthreads();
+
 //            for (auto ix = x_offset; ix < lhs_n; ix += step) {
 //                auto *optr = out_p + ix * rhs_n;
 //                const auto lhs_val = lhs_p[ix];

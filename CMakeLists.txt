@@ -11,7 +11,7 @@ add_executable(cuda_tensor_mul
         ftm_cuda_simple.cuh
         examples.cuh
         example1.cu
-
+        ft_mul_kernels.h
         )
 
 set_target_properties(cuda_tensor_mul PROPERTIES

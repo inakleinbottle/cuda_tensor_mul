@@ -1,13 +1,14 @@
 //
 // Created by sam on 08/05/23.
 //
-
+#define REPORT_NEW_MAX_ERROR
 
 #include "examples.cuh"
 
 #include "common.cuh"
 #include "ftm_cuda_simple.cuh"
 #include "ftm_reference.cuh"
+#include "ft_mul_kernels.h"
 
 #include <iostream>
 
@@ -18,7 +19,7 @@ void example1_ft_multiply_and_add() {
               << "\n\n";
 
 
-    auto data = get_example_data<float>(4, 4);
+    auto data = get_example_data<float>(4, 10);
 
 
     const thrust::device_vector<float> lhs(data.lhs_data);
@@ -35,13 +36,21 @@ void example1_ft_multiply_and_add() {
     };
 
     auto start = std::chrono::high_resolution_clock::now();
-    ft_mul_kernel<<<blocks, threads_per_block>>>(
-        thrust::raw_pointer_cast(&out[0]),
-        thrust::raw_pointer_cast(&lhs[0]),
-        thrust::raw_pointer_cast(&rhs[0]),
-        data.depth,
-        thrust::raw_pointer_cast(&levels[0])
-    );
+//    ft_mul_kernel<<<blocks, threads_per_block>>>(
+//        thrust::raw_pointer_cast(&out[0]),
+//        thrust::raw_pointer_cast(&lhs[0]),
+//        thrust::raw_pointer_cast(&rhs[0]),
+//        data.depth,
+//        thrust::raw_pointer_cast(&levels[0])
+//    );
+    ft_mul_multiple_kernels(thrust::raw_pointer_cast(&out[0]),
+                            thrust::raw_pointer_cast(&lhs[0]),
+                            thrust::raw_pointer_cast(&rhs[0]),
+                            data.depth,
+                            thrust::raw_pointer_cast(&levels[0]),
+                            &data.level_sizes[0],
+                            threads_per_block
+                            );
     cudaDeviceSynchronize();
     auto end = std::chrono::high_resolution_clock::now();
 
