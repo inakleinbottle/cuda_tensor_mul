@@ -19,7 +19,7 @@ void example1_ft_multiply_and_add() {
               << "\n\n";
 
 
-    auto data = get_example_data<float>(4, 10);
+    auto data = get_example_data<float>(4, 4);
 
 
     const thrust::device_vector<float> lhs(data.lhs_data);
