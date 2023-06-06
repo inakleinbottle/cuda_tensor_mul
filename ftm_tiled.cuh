@@ -11,14 +11,14 @@
 
 template <typename T>
 struct WriteTensorData {
-    rp_t <T> fwd_data;
-    rp_t <T> rev_data;
+    T* fwd_data;
+    T* rev_data;
 };
 
 template <typename T>
 struct ReadTensorData {
-    crp_t <T> fwd_read;
-    crp_t <T> rev_read;
+    const T* fwd_read;
+    const T* rev_read;
 };
 
 struct ComputeInfo {
@@ -49,8 +49,7 @@ __global__ void ft_tiled_mul(WriteTensorData<T> out,
         return level_offset + offset;
     };
 
-    extern __shared__ T
-    tile[];   // size blockDim.x * blockDim.y
+    extern __shared__ T tile[];   // size blockDim.x * blockDim.y
     const auto tile_size = tile_width * tile_width;
 
     T lhs_val = 0;
@@ -61,7 +60,7 @@ __global__ void ft_tiled_mul(WriteTensorData<T> out,
         const auto &mid_stride = info.levels[mid_deg];
 
         for (int32_t mid_idx = 0; mid_idx < info.levels[mid_deg]; ++mid_idx) {
-            const auto mid_ridx = reverse_idx(mid_idx, info.width, mid_deg);
+//            const auto mid_ridx = reverse_idx(mid_idx, info.width, mid_deg);
 
             tile[tile_idx] = 0;
             __syncthreads();

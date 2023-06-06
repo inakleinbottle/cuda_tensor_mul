@@ -9,6 +9,7 @@
 #include "ftm_cuda_simple.cuh"
 #include "ftm_reference.cuh"
 #include "ft_mul_kernels.h"
+#include "ftm_tiled.cuh"
 
 #include <iostream>
 
@@ -19,7 +20,18 @@ void example1_ft_multiply_and_add() {
               << "\n\n";
 
 
-    auto data = get_example_data<float>(4, 4);
+    auto data = get_example_data<float>(4, 8);
+
+    ComputeInfo info {
+        data.width,
+        data.depth,
+        2,
+        nullptr,
+        nullptr
+    };
+    const int tile_letters = info.tile_letters;
+    const int tile_width = data.width * data.width;
+    const int tile_size = tile_width * tile_width;
 
 
     const thrust::device_vector<float> lhs(data.lhs_data);
@@ -35,6 +47,8 @@ void example1_ft_multiply_and_add() {
         round_up_div(static_cast<uint32_t>(data.tensor_size), threads_per_block.y)
     };
 
+    info.levels = thrust::raw_pointer_cast(&levels[0]);
+
     auto start = std::chrono::high_resolution_clock::now();
 //    ft_mul_kernel<<<blocks, threads_per_block>>>(
 //        thrust::raw_pointer_cast(&out[0]),
@@ -43,10 +57,20 @@ void example1_ft_multiply_and_add() {
 //        data.depth,
 //        thrust::raw_pointer_cast(&levels[0])
 //    );
+
+    if (info.depth >= 2*info.tile_letters) {
+        ft_tiled_mul<float><<<blocks, threads_per_block, threads_per_block.x*threads_per_block.y>>>(
+            {thrust::raw_pointer_cast(&out[0]), nullptr},
+            {thrust::raw_pointer_cast(&lhs[0]), nullptr},
+            {thrust::raw_pointer_cast(&rhs[0]), nullptr},
+            info
+            );
+    }
+
     ft_mul_multiple_kernels(thrust::raw_pointer_cast(&out[0]),
                             thrust::raw_pointer_cast(&lhs[0]),
                             thrust::raw_pointer_cast(&rhs[0]),
-                            data.depth,
+                            std::min(data.depth, 2*info.tile_letters-1),
                             thrust::raw_pointer_cast(&levels[0]),
                             &data.level_sizes[0],
                             threads_per_block
