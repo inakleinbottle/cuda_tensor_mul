@@ -40,9 +40,10 @@ template <typename S>
 __global__ void ft_antipode_high_kernel(
     rp_t<S> pd_out,
     crp_t<S> pd_in,
-    int32_t degree,
+    int32_t degree
+    ) {
 
-    )
+}
 
 
 

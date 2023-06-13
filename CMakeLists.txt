@@ -20,6 +20,8 @@ add_executable(cuda_tensor_mul
 set_target_properties(cuda_tensor_mul PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON)
 
+target_compile_options(cuda_tensor_mul PRIVATE "-lineinfo")
+
 
 find_package(Thrust REQUIRED)
 

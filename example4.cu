@@ -35,13 +35,14 @@
 #include "common.cuh"
 
 #include "simple_antipode.cuh"
+#include "ft_antipode_tiled.cuh"
 
 void example4_ft_antipode() {
     std::cout << "Example 4\n"
               << "Compute the antipode a free tensor"
               << "\n\n";
 
-    auto data = get_example_data<float>(5, 5);
+    auto data = get_example_data<float>(5, 11);
 
     const thrust::device_vector<float> in_data(data.lhs_data);
     thrust::device_vector<float> out(data.tensor_size);

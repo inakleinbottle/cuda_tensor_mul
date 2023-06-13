@@ -62,10 +62,10 @@ __global__ void ft_tiled_mul(WriteTensorData<T> out,
 
 
             out_val = 0;
+            auto offset = get_offset(out_deg, (xi * mid_stride + mid_idx) * tile_width + yi);
             if (xi < tile_width && yi < tile_width) {
                 const auto& lhs_unit = lhs.fwd_read[0];
                 const auto& rhs_unit = rhs.fwd_read[0];
-                auto offset = get_offset(out_deg, (xi * mid_stride + mid_idx) * tile_width + yi);
                 lhs_val = lhs.fwd_read[offset];
                 rhs_val = rhs.fwd_read[offset];
                 out_val += lhs_unit*rhs_val + lhs_val*rhs_unit;
@@ -77,13 +77,11 @@ __global__ void ft_tiled_mul(WriteTensorData<T> out,
                 lhs_val = 0;
                 rhs_val = 0;
 
-                const auto small_bound = info.levels[lhs_deg];
-                const auto &remainder_bound = info.levels[info.tile_letters + rhs_deg];
-
-                auto split = divide(xi, small_bound);
+                const auto &remainder_bound = info.levels[info.tile_letters - lhs_deg];
+                auto split = divide(xi, remainder_bound);
                 if (xi < tile_width && yi < tile_width) {
-                    lhs_val = lhs.fwd_read[get_offset(lhs_deg, 0)];
-                    rhs_val = rhs.fwd_read[get_offset(rhs_deg, (split.rem * mid_stride + mid_idx) * tile_width) + yi];
+                    lhs_val = lhs.fwd_read[get_offset(lhs_deg, split.div)];
+                    rhs_val = rhs.fwd_read[get_offset(rhs_deg, (split.rem * mid_stride + mid_idx) * tile_width + yi)];
                 }
 
                 out_val += lhs_val * rhs_val;
@@ -96,14 +94,13 @@ __global__ void ft_tiled_mul(WriteTensorData<T> out,
                 rhs_val = 0;
 
                 auto split = divide(mid_idx, info.levels[rhs_mid_deg]);
-                if (xi < tile_width) {
+                if (xi < tile_width && yi < tile_width) {
                     lhs_val = lhs.fwd_read[get_offset(lhs_mid_deg + info.tile_letters,
                                                       xi * info.levels[lhs_mid_deg] + split.div)];
-                }
-                if (yi < tile_width) {
                     rhs_val = rhs.fwd_read[get_offset(rhs_mid_deg + info.tile_letters,
                                                       split.rem * tile_width + yi)];
                 }
+
 
                 out_val += lhs_val * rhs_val;
             }
@@ -111,15 +108,17 @@ __global__ void ft_tiled_mul(WriteTensorData<T> out,
             for (int32_t rhs_deg = 1; rhs_deg < info.tile_letters; ++rhs_deg) {
                 auto lhs_deg = out_deg - rhs_deg;
 
-                const auto &remainder_bound = info.levels[rhs_deg];
                 lhs_val = 0;
                 rhs_val = 0;
 
-                auto split = divide(xi, remainder_bound);
+                const auto& small_bound = info.levels[info.tile_letters - rhs_deg];
+                const auto &remainder_bound = info.levels[rhs_deg];
+
+                auto split = divide(yi, remainder_bound);
                 if (xi < tile_width && yi < tile_width) {
-                    rhs_val = rhs.fwd_read[get_offset(rhs_deg,
-                                                      (split.rem * mid_stride + mid_idx) * tile_width + yi)];
-                    lhs_val = lhs.fwd_read[get_offset(lhs_deg, split.div)];
+                    lhs_val = lhs.fwd_read[get_offset(lhs_deg, (xi * mid_stride + mid_idx) * small_bound + split.div)];
+                    rhs_val = rhs.fwd_read[get_offset(rhs_deg, split.rem)];
+//                                                      (split.rem * mid_stride + mid_idx) * tile_width + yi)];
                 }
 
                 out_val += lhs_val * rhs_val;
@@ -127,6 +126,7 @@ __global__ void ft_tiled_mul(WriteTensorData<T> out,
 
             __syncthreads();
             if (xi < tile_width && yi < tile_width) {
+//                atomicAdd(out.fwd_data + offset, out_val);
                 out.fwd_data[get_offset(out_deg, (xi * mid_stride + mid_idx) * tile_width + yi)]
                     += out_val;
             }
