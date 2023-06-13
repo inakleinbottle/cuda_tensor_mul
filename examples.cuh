@@ -19,4 +19,7 @@ void example2_ft_multiply_inplace();
 void example3_ft_tensor_exp();
 
 
+void example4_ft_antipode();
+
+
 #endif //CUDA_TENSOR_MUL_EXAMPLES_CUH

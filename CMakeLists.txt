@@ -12,6 +12,9 @@ add_executable(cuda_tensor_mul
         examples.cuh
         example1.cu
         ft_mul_kernels.h
+        example4.cu
+        simple_antipode.cuh
+        ft_antipode_tiled.cuh
         )
 
 set_target_properties(cuda_tensor_mul PROPERTIES

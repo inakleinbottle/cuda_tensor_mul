@@ -55,6 +55,30 @@ inline __host__ __device__ int32_t reverse_idx(int32_t idx, int32_t width, int32
     return out;
 }
 
+inline __host__ __device__ int32_t reverse_idx_to(int32_t idx, int32_t width, int32_t* degree) {
+    if (idx == 0) {
+        *degree = 0;
+        return 0;
+    }
+
+    if (idx <= width) {
+        *degree = 1;
+        return idx;
+    }
+
+    auto out = 0;
+    while (idx > 0) {
+        *degree += 1;
+        auto tmp = idx - 1;
+        tmp /= width;
+        out *= width;
+        out += idx - tmp*width;
+        idx = tmp;
+    }
+    return out;
+}
+
+
 inline __host__ __device__ int32_t compute_offset(const int32_t *levels, int32_t level) {
     int32_t result = 0;
     for (int32_t i = 0; i < level; ++i) {
