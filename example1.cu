@@ -59,7 +59,7 @@ void example1_ft_multiply_and_add() {
 //    );
 
     if (info.depth >= 2*info.tile_letters) {
-        ft_tiled_mul<float><<<blocks, threads_per_block, threads_per_block.x*threads_per_block.y>>>(
+        ft_tiled_mul<float><<<blocks.x, threads_per_block>>>(
             {thrust::raw_pointer_cast(&out[0]), nullptr},
             {thrust::raw_pointer_cast(&lhs[0]), nullptr},
             {thrust::raw_pointer_cast(&rhs[0]), nullptr},
