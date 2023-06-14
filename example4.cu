@@ -90,7 +90,13 @@ void example4_ft_antipode() {
 
     int32_t dummy;
     for (int32_t i=0; i<data.tensor_size; ++i) {
-        expected.push_back(data.lhs_data[reverse_idx_to(i, data.width, &dummy)]);
+        auto rev_idx = reverse_idx_to(i, data.width, &dummy);
+        if ((dummy & 1) == 0) {
+            expected.push_back(data.lhs_data[rev_idx]);
+        } else {
+            expected.push_back(-data.lhs_data[rev_idx]);
+        }
+
     }
 
     auto err = get_error(result, expected);
