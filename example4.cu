@@ -42,22 +42,42 @@ void example4_ft_antipode() {
               << "Compute the antipode a free tensor"
               << "\n\n";
 
-    auto data = get_example_data<float>(5, 11);
+    auto data = get_example_data<float>(5, 6);
 
     const thrust::device_vector<float> in_data(data.lhs_data);
     thrust::device_vector<float> out(data.tensor_size);
     const thrust::device_vector<int32_t> levels(data.level_sizes);
 
-    auto threads_per_block = 128;
-    auto blocks = round_up_div(data.tensor_size, threads_per_block);
+//    auto threads_per_block = 128;
+//    auto blocks = round_up_div(data.tensor_size, threads_per_block);
+
+    auto tile_letters = 2;
+    AntipodeInfo info {
+        data.width,
+        data.depth,
+        tile_letters,
+        compute_offset(data.level_sizes.data(), 2*tile_letters),
+        thrust::raw_pointer_cast(&levels[0])
+    };
+
+
+    dim3 threads_per_block(32, 32);
+    auto blocks = data.level_sizes[data.depth / 2];
 
     auto start = std::chrono::high_resolution_clock::now();
-    ft_antipode_simple<<<blocks, threads_per_block>>>(
+//    ft_antipode_simple<<<blocks, threads_per_block>>>(
+//        thrust::raw_pointer_cast(&out[0]),
+//        thrust::raw_pointer_cast(&in_data[0]),
+//        data.tensor_size,
+//        data.width
+//        );
+    ft_antipode_kernel<<<blocks, threads_per_block>>>(
         thrust::raw_pointer_cast(&out[0]),
         thrust::raw_pointer_cast(&in_data[0]),
-        data.tensor_size,
-        data.width
+        info
         );
+
+
     cudaDeviceSynchronize();
     auto end = std::chrono::high_resolution_clock::now();
 

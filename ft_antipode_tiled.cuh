@@ -47,7 +47,7 @@ struct AntipodeInfo {
 
 
 template <typename S>
-__global__ void ft_antipode_high_kernel(
+__global__ void ft_antipode_kernel(
     rp_t<S> pd_out,
     crp_t<S> pd_in,
     AntipodeInfo info
@@ -73,9 +73,10 @@ __global__ void ft_antipode_high_kernel(
     const auto rix = reverse_idx(ix, width, info.tile_letters);
     const auto riy = reverse_idx(iy, width, info.tile_letters);
 
+    pd_out += info.untiled_size;
+    pd_in += info.untiled_size;
 
-
-    for (int32_t out_deg=tot_tile_let; out_deg < info.depth; ++out_deg) {
+    for (int32_t out_deg=tot_tile_let; out_deg <= info.depth; ++out_deg) {
         const auto mid_deg = out_deg - tot_tile_let;
         const auto& mid_stride = info.levels[mid_deg];
 
@@ -92,9 +93,10 @@ __global__ void ft_antipode_high_kernel(
                     pd_out[write] = -pd_in[read];
                 }
             }
-
         }
 
+        pd_out += info.levels[out_deg];
+        pd_in += info.levels[out_deg];
     }
 
 
