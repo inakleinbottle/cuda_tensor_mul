@@ -61,7 +61,7 @@ __global__ void ft_antipode_kernel(
     const auto tot_tile_let = 2 * info.tile_letters;
 
     if (untiled_idx < info.untiled_size) {
-        int32_t degree;
+        int32_t degree = 0;
         const auto reverse_idx = reverse_idx_to(untiled_idx, width, &degree);
         if ((degree & 1) == 0) {
             pd_out[reverse_idx] = pd_in[untiled_idx];
