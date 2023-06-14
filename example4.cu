@@ -84,7 +84,16 @@ void example4_ft_antipode() {
     auto time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     std::cout << "Time taken by kernel " << time.count() << "us\n";
 
+    thrust::host_vector<float> result(out);
+    thrust::host_vector<float> expected;
+    expected.reserve(data.tensor_size);
 
+    int32_t dummy;
+    for (int32_t i=0; i<data.tensor_size; ++i) {
+        expected.push_back(data.lhs_data[reverse_idx_to(i, data.width, &dummy)]);
+    }
 
+    auto err = get_error(result, expected);
+    std::cout << "Max error: " << err << '\n';
 
 }
