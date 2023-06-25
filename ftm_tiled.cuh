@@ -8,6 +8,7 @@
 #include "common.cuh"
 #include "ftm_cuda_simple.cuh"
 
+#include <cstdio>
 
 template <typename T>
 struct WriteTensorData {
@@ -57,20 +58,16 @@ __global__ void ft_tiled_mul(WriteTensorData<T> out,
         const auto mid_deg = out_deg - 2 * info.tile_letters;
         const auto &mid_stride = info.levels[mid_deg];
         __syncthreads();
-        for (uint32_t mid_idx = blockIdx.x; mid_idx < info.levels[mid_deg]; mid_idx += blockDim.x) {
+        for (int32_t mid_idx = blockIdx.x; mid_idx < info.levels[mid_deg]; mid_idx += gridDim.x) {
 //            const auto mid_ridx = reverse_idx(mid_idx, info.width, mid_deg);
 
 
+//            for (auto ix=threadIdx.x, iy=threadIdx.y;
+//                ix < tile_width, iy<tile_width;
+//                ix += blockDim.x, iy+=blockDim.y) {
+//
+//            }
             out_val = 0;
-            auto offset = get_offset(out_deg, (xi * mid_stride + mid_idx) * tile_width + yi);
-            if (xi < tile_width && yi < tile_width) {
-                const auto& lhs_unit = lhs.fwd_read[0];
-                const auto& rhs_unit = rhs.fwd_read[0];
-                lhs_val = lhs.fwd_read[offset];
-                rhs_val = rhs.fwd_read[offset];
-                out_val += lhs_unit*rhs_val + lhs_val*rhs_unit;
-            }
-
             for (int32_t lhs_deg = 1; lhs_deg < info.tile_letters; ++lhs_deg) {
                 auto rhs_deg = out_deg - lhs_deg;
 
@@ -82,9 +79,9 @@ __global__ void ft_tiled_mul(WriteTensorData<T> out,
                 if (xi < tile_width && yi < tile_width) {
                     lhs_val = lhs.fwd_read[get_offset(lhs_deg, split.div)];
                     rhs_val = rhs.fwd_read[get_offset(rhs_deg, (split.rem * mid_stride + mid_idx) * tile_width + yi)];
+                    out_val += lhs_val * rhs_val;
                 }
 
-                out_val += lhs_val * rhs_val;
             }
 
             for (int32_t lhs_mid_deg = 0; lhs_mid_deg <= mid_deg; ++lhs_mid_deg) {
@@ -99,10 +96,10 @@ __global__ void ft_tiled_mul(WriteTensorData<T> out,
                                                       xi * info.levels[lhs_mid_deg] + split.div)];
                     rhs_val = rhs.fwd_read[get_offset(rhs_mid_deg + info.tile_letters,
                                                       split.rem * tile_width + yi)];
+                    out_val += lhs_val * rhs_val;
                 }
 
 
-                out_val += lhs_val * rhs_val;
             }
 
             for (int32_t rhs_deg = 1; rhs_deg < info.tile_letters; ++rhs_deg) {
@@ -115,20 +112,31 @@ __global__ void ft_tiled_mul(WriteTensorData<T> out,
                 const auto &remainder_bound = info.levels[rhs_deg];
 
                 auto split = divide(yi, remainder_bound);
+
                 if (xi < tile_width && yi < tile_width) {
                     lhs_val = lhs.fwd_read[get_offset(lhs_deg, (xi * mid_stride + mid_idx) * small_bound + split.div)];
                     rhs_val = rhs.fwd_read[get_offset(rhs_deg, split.rem)];
 //                                                      (split.rem * mid_stride + mid_idx) * tile_width + yi)];
+                    out_val += lhs_val * rhs_val;
                 }
 
-                out_val += lhs_val * rhs_val;
             }
 
-            __syncthreads();
+            auto offset = get_offset(out_deg, (xi * mid_stride + mid_idx) * tile_width + yi);
+            if (xi < tile_width && yi < tile_width) {
+                const auto &lhs_unit = lhs.fwd_read[0];
+                const auto &rhs_unit = rhs.fwd_read[0];
+                lhs_val = lhs.fwd_read[offset];
+                rhs_val = rhs.fwd_read[offset];
+                out_val += lhs_unit * rhs_val + lhs_val * rhs_unit;
+            }
+
+
+
+//            __syncthreads();
             if (xi < tile_width && yi < tile_width) {
 //                atomicAdd(out.fwd_data + offset, out_val);
-                out.fwd_data[get_offset(out_deg, (xi * mid_stride + mid_idx) * tile_width + yi)]
-                    += out_val;
+                out.fwd_data[offset] += out_val;
             }
         }
 

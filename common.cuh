@@ -39,7 +39,7 @@ inline DivRem divide(int idx, int divisor) {
     DivRem result;
     result.div = idx / divisor;
     result.rem = (idx - result.div * divisor);
-
+    assert(result.div*divisor + result.rem == idx);
     return result;
 }
 
