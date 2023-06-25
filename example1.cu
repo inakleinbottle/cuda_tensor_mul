@@ -20,12 +20,12 @@ void example1_ft_multiply_and_add() {
               << "\n\n";
 
 
-    auto data = get_example_data<float>(2, 8);
+    auto data = get_example_data<float>(32, 2);
 
     ComputeInfo info {
         data.width,
         data.depth,
-        2,
+        1,
         nullptr,
         nullptr
     };
@@ -44,7 +44,7 @@ void example1_ft_multiply_and_add() {
     thrust::device_vector<float> out(data.tensor_size);
 
 
-    dim3 threads_per_block(1<<info.tile_letters, 1<<info.tile_letters);
+    dim3 threads_per_block(32, 32);
     dim3 blocks {
         round_up_div(static_cast<uint32_t>(data.tensor_size), threads_per_block.x),
         round_up_div(static_cast<uint32_t>(data.tensor_size), threads_per_block.y)
