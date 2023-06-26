@@ -20,12 +20,12 @@ void example1_ft_multiply_and_add() {
               << "\n\n";
 
 
-    auto data = get_example_data<float>(4, 8);
+    auto data = get_example_data<float>(32, 2);
 
     ComputeInfo info {
         data.width,
         data.depth,
-        2,
+        1,
         nullptr,
         nullptr
     };
@@ -33,6 +33,9 @@ void example1_ft_multiply_and_add() {
     const int tile_width = data.width * data.width;
     const int tile_size = tile_width * tile_width;
 
+    for (int i=0; i<data.depth; ++i) {
+        std::cout << i << ' ' << compute_offset(data.level_sizes.data(), i)  << ' ' << data.level_sizes[i] << '\n';
+    }
 
     const thrust::device_vector<float> lhs(data.lhs_data);
     const thrust::device_vector<float> rhs(data.rhs_data);

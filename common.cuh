@@ -39,7 +39,7 @@ inline DivRem divide(int idx, int divisor) {
     DivRem result;
     result.div = idx / divisor;
     result.rem = (idx - result.div * divisor);
-
+    assert(result.div*divisor + result.rem == idx);
     return result;
 }
 
@@ -66,6 +66,7 @@ inline __host__ __device__ int32_t reverse_idx_to(int32_t idx, int32_t width, in
         return idx;
     }
 
+    *degree = 0;
     auto out = 0;
     while (idx > 0) {
         *degree += 1;
