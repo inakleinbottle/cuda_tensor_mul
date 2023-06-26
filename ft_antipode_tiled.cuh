@@ -70,6 +70,7 @@ __global__ void ft_antipode_kernel(
         }
     }
 
+    __syncthreads();
     const auto rix = reverse_idx(ix, width, info.tile_letters);
     const auto riy = reverse_idx(iy, width, info.tile_letters);
 

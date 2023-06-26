@@ -62,7 +62,7 @@ void example4_ft_antipode() {
 
 
     dim3 threads_per_block(32, 32);
-    auto blocks = data.level_sizes[data.depth / 2];
+    auto blocks = data.level_sizes[data.depth];
 
     auto start = std::chrono::high_resolution_clock::now();
 //    ft_antipode_simple<<<blocks, threads_per_block>>>(
@@ -91,7 +91,6 @@ void example4_ft_antipode() {
     for (int32_t i=0; i<data.tensor_size; ++i) {
         int32_t dummy = 0;
         auto rev_idx = reverse_idx_to(i, data.width, &dummy);
-        std::cout << "idx: " << i << " ridx: " << rev_idx << '\n';
         if ((dummy & 1) == 0) {
             expected.push_back(data.lhs_data[rev_idx]);
         } else {

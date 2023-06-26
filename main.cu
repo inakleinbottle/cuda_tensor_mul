@@ -19,7 +19,7 @@
 
 int main() {
 
-//    example1_ft_multiply_and_add();
-    example4_ft_antipode();
+    example1_ft_multiply_and_add();
+//    example4_ft_antipode();
 
 }

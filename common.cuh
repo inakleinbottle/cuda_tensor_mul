@@ -47,7 +47,7 @@ inline __host__ __device__ int32_t reverse_idx(int32_t idx, int32_t width, int32
     auto out = 0;
     for (int32_t i = 0; i < depth; ++i) {
         const auto tmp = idx;
-        idx /= tmp;
+        idx /= width;
         const auto rem = tmp - idx * width;
         out *= width;
         out += rem;

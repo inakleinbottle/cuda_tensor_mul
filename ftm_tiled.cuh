@@ -127,8 +127,7 @@ __global__ void ft_tiled_mul(WriteTensorData<T> out,
             __syncthreads();
             if (xi < tile_width && yi < tile_width) {
 //                atomicAdd(out.fwd_data + offset, out_val);
-                out.fwd_data[get_offset(out_deg, (xi * mid_stride + mid_idx) * tile_width + yi)]
-                    += out_val;
+                out.fwd_data[offset] += out_val;
             }
         }
 
