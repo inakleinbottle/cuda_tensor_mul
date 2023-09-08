@@ -12,7 +12,7 @@
 #include "examples.cuh"
 
 
-
+#include "shuffle_product.cuh"
 
 
 
